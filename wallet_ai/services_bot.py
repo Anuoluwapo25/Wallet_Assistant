@@ -322,24 +322,136 @@ class CryptoTransferService:
         except requests.RequestException as e:
             return f"❌ Failed to reach transaction server: {str(e)}"
 
+# import os
+# import requests
+# from dotenv import load_dotenv
+
+# # Load environment variables from .env file
+# load_dotenv()
+
+# class GeminiAIService:
+    
+#     @staticmethod
+#     def get_ai_response(user_input, is_voice_input=False):
+#         """Get AI response from Gemini API"""
+#         voice_context = " (This message was sent via voice)" if is_voice_input else ""
+        
+#         context = ("You are a helpful assistant called Frechi for a crypto application called Sisos. "
+#                   "The user can ask for their balance, transfer ETH using a wallet address or basename "
+#                   "i.e username.base.eth, check token prices, or tip the app Zapbase'. "
+#                   "Be empathetic and please respond to the following message" + voice_context + ":")
+        
+#         # Get API key from environment variable
+#         api_key = os.getenv('GEMINI_API_KEY')
+        
+#         if not api_key:
+#             return "API key not configured. Please set GEMINI_API_KEY in your .env file."
+        
+#         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        
+#         payload = {
+#             "contents": [{
+#                 "parts": [{
+#                     "text": f"{context} {user_input}"
+#                 }]
+#             }]
+#         }
+        
+#         try:
+#             response = requests.post(
+#                 url,
+#                 json=payload,
+#                 headers={'Content-Type': 'application/json'},
+#                 timeout=30
+#             )
+            
+#             if response.status_code == 200:
+#                 data = response.json()
+#                 if (data.get('candidates') and 
+#                     len(data['candidates']) > 0 and
+#                     data['candidates'][0].get('content', {}).get('parts') and
+#                     len(data['candidates'][0]['content']['parts']) > 0):
+                    
+#                     return data['candidates'][0]['content']['parts'][0]['text']
+            
+#             return "Sorry, I couldn't process that request right now."
+            
+#         except requests.RequestException:
+#             return "Oops! Something went wrong with the AI service."
+
+
+import os
+import re
+import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 class GeminiAIService:
+    
+    @staticmethod
+    def preprocess_voice_input(user_input):
+        """Preprocess voice input to handle basename formats"""
+        # Convert common voice patterns to proper basename format
+        patterns = [
+            # "annie base eth" or "annie base e t h" -> "annie.base.eth"
+            (r'\b(\w+)\s+base\s+eth\b', r'\1.base.eth'),
+            (r'\b(\w+)\s+base\s+e\s*t\s*h\b', r'\1.base.eth'),
+            # "annie dot base dot eth" -> "annie.base.eth"
+            (r'\b(\w+)\s+dot\s+base\s+dot\s+eth\b', r'\1.base.eth'),
+            # "annie period base period eth" -> "annie.base.eth"
+            (r'\b(\w+)\s+period\s+base\s+period\s+eth\b', r'\1.base.eth'),
+            # "annie point base point eth" -> "annie.base.eth"
+            (r'\b(\w+)\s+point\s+base\s+point\s+eth\b', r'\1.base.eth'),
+        ]
+        
+        processed = user_input.lower()
+        for pattern, replacement in patterns:
+            processed = re.sub(pattern, replacement, processed, flags=re.IGNORECASE)
+        
+        return processed
     
     @staticmethod
     def get_ai_response(user_input, is_voice_input=False):
         """Get AI response from Gemini API"""
-        voice_context = " (This message was sent via voice)" if is_voice_input else ""
+        # Preprocess voice input to handle basenames
+        if is_voice_input:
+            processed_input = GeminiAIService.preprocess_voice_input(user_input)
+            voice_context = " (This message was sent via voice)"
+        else:
+            processed_input = user_input
+            voice_context = ""
         
-        context = ("You are a helpful assistant called Frechi for a crypto application called ZapBase. "
-                  "The user can ask for their balance, transfer ETH using a wallet address or basename "
-                  "i.e username.base.eth, check token prices, or tip the app Zapbase'. "
-                  "Be empathetic and please respond to the following message" + voice_context + ":")
+        context = (
+            "You are a helpful assistant called Frechi for a crypto application called Sisos. "
+            "The user can ask for their balance, transfer ETH using a wallet address or basename "
+            "(username.base.eth format). "
+            "\n\nIMPORTANT BASENAME RULES:"
+            "\n- Basenames always follow the format: username.base.eth"
+            "\n- When users say things like 'annie base eth' or 'send to annie', interpret it as 'annie.base.eth'"
+            "\n- Common voice variations include: 'base eth', 'base e t h', 'dot base dot eth'"
+            "\n- Always add .base.eth to usernames if the user doesn't specify the full format"
+            "\n- Examples: 'annie' -> 'annie.base.eth', 'john base eth' -> 'john.base.eth'"
+            "\n\nWhen extracting recipient information:"
+            "\n- Look for patterns like: 'send to [name]', 'transfer to [name] base eth', 'pay [name]'"
+            "\n- Always format the final basename as username.base.eth"
+            "\n- If you detect a username without .base.eth, add it automatically"
+            "\n\nBe empathetic and respond to the following message" + voice_context + ":"
+        )
         
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.GEMINI_API_KEY}"
+        # Get API key from environment variable
+        api_key = os.getenv('GEMINI_API_KEY')
+        
+        if not api_key:
+            return "API key not configured. Please set GEMINI_API_KEY in your .env file."
+        
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         
         payload = {
             "contents": [{
                 "parts": [{
-                    "text": f"{context} {user_input}"
+                    "text": f"{context}\n\nOriginal input: {user_input}\nProcessed input: {processed_input}"
                 }]
             }]
         }
@@ -359,12 +471,34 @@ class GeminiAIService:
                     data['candidates'][0].get('content', {}).get('parts') and
                     len(data['candidates'][0]['content']['parts']) > 0):
                     
-                    return data['candidates'][0]['content']['parts'][0]['text']
+                    ai_response = data['candidates'][0]['content']['parts'][0]['text']
+                    
+                    # Post-process AI response to ensure basenames are properly formatted
+                    ai_response = GeminiAIService.format_basenames_in_response(ai_response)
+                    
+                    return ai_response
             
             return "Sorry, I couldn't process that request right now."
             
         except requests.RequestException:
             return "Oops! Something went wrong with the AI service."
+    
+    @staticmethod
+    def format_basenames_in_response(response):
+        """Ensure basenames in AI response are properly formatted"""
+        # Find potential basenames that might be missing dots
+        # Pattern: word followed by "base eth" or similar
+        patterns = [
+            (r'\b(\w+)\s+base\s+eth\b', r'\1.base.eth'),
+            (r'\b(\w+)base eth\b', r'\1.base.eth'),
+            (r'\b(\w+)\s+baseeth\b', r'\1.base.eth'),
+        ]
+        
+        formatted = response
+        for pattern, replacement in patterns:
+            formatted = re.sub(pattern, replacement, formatted, flags=re.IGNORECASE)
+        
+        return formatted
 
 class TelegramBotService:
     

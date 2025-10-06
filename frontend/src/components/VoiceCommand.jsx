@@ -32,7 +32,7 @@ const VoiceCommand = ({ onCommand, onTransactionDetected }) => {
 
     try {
       // Send to backend for processing
-      const response = await fetch('/api/voice-command', {
+      const response = await fetch('http://127.0.0.1:8000/api/voice-command', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

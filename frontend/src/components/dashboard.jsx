@@ -201,7 +201,7 @@ function Dashboard({ onNavigate, walletAddress, isConnected }) {
   }
 
   const fetchTransactionHistory = async () => {
-    if (!address || !ALCHEMY_API_KEY || ALCHEMY_API_KEY === 'YOUR_ALCHEMY_API_KEY_HERE') {
+    if (!address || !ALCHEMY_API_KEY || ALCHEMY_API_KEY === '') {
       setError("Alchemy API key required for transaction history")
       return
     }
