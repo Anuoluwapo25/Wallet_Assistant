@@ -35,6 +35,6 @@ export default {
   ],
   "shortName": "tko-katla",
   "slug": "taiko-katla-l2",
-  "status": "active",
+  "status": "deprecated",
   "testnet": true
 } as const satisfies Chain;

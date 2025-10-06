@@ -7,7 +7,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.core.cache import cache
 from decimal import Decimal
-from .services import (
+from .services_bot import (
     CryptoTransferService, 
     GeminiAIService, 
     TelegramBotService, 
@@ -27,6 +27,101 @@ def health_check(request):
 def home(request):
     """Home endpoint"""
     return HttpResponse("Server is running.")
+
+@method_decorator(csrf_exempt, name='dispatch')
+class VoiceCommandView(View):
+    
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            text = data.get('text')
+            confidence = data.get('confidence', 0)
+            is_voice_input = data.get('isVoiceInput', False)
+            
+            if not text:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Missing text input'
+                }, status=400)
+            
+            logger.info(f"Voice command received: {text} (confidence: {confidence})")
+            
+            is_transfer, transfer_data = CryptoTransferService.extract_transfer_info(text)
+            
+            if is_transfer:
+                response = {
+                    'success': True,
+                    'message': f"Transfer of {transfer_data['amount']} {transfer_data['token']} to {transfer_data['recipient']} detected",
+                    'transfer': transfer_data
+                }
+            else:
+                ai_response = GeminiAIService.get_ai_response(text, is_voice_input)
+                response = {
+                    'success': True,
+                    'message': ai_response
+                }
+            
+            return JsonResponse(response)
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Invalid JSON'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"Voice command processing error: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Server error: {str(e)}'
+            }, status=500)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SendCryptoView(View):
+    
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            amount = data.get('amount')
+            token = data.get('token', 'ETH')
+            recipient = data.get('recipient')
+            
+            if not all([amount, recipient]):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Missing required fields: amount, recipient'
+                }, status=400)
+            
+            # Process the crypto transfer
+            result = CryptoTransferService.send_crypto(amount, token, recipient)
+            
+            if "✅" in result and "Transaction:" in result:
+                # Extract transaction hash if present
+                tx_hash = None
+                if "https://sepolia.basescan.org/tx/" in result:
+                    tx_hash = result.split("https://sepolia.basescan.org/tx/")[1].split("\n")[0]
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': result,
+                    'txHash': tx_hash
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'message': result
+                })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'Invalid JSON'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"Send crypto error: {e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'Server error: {str(e)}'
+            }, status=500)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SendResponseView(View):

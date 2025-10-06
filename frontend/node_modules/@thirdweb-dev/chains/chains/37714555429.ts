@@ -4,18 +4,18 @@ export default {
   "chainId": 37714555429,
   "explorers": [
     {
-      "name": "blockscout",
-      "url": "https://testnet-explorer-v2.xai-chain.net/",
+      "name": "Blockscout",
+      "url": "https://testnet-explorer-v2.xai-chain.net",
       "standard": "EIP3091"
     }
   ],
   "faucets": [],
   "features": [],
   "icon": {
-    "url": "ipfs://QmZKFekbHxDkB8gFmmmjWz89SLhwg38GkALmAKo3gn753N/2024-01-10%2012.50.15.jpg",
-    "width": 512,
-    "height": 512,
-    "format": "jpg"
+    "url": "ipfs://QmbWFbhjKw7zfsK5Rd9YxZgJgS43fpySPozjhYc98ibbEV/xai-icon.png",
+    "width": 1024,
+    "height": 1024,
+    "format": "png"
   },
   "infoURL": "https://xai.games",
   "name": "Xai Sepolia",
